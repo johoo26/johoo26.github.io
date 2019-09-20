@@ -1,0 +1,178 @@
+<!DOCTYPE html><html lang="en"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description" content="Don't quit, you deserve what you want."><title>【译】Python dictionary implementation | JOHOO'S BLOG</title><link rel="stylesheet" type="text/css" href="//fonts.neworld.org/css?family=Source+Code+Pro"><link rel="stylesheet" type="text/css" href="/css/style.css?v=2.0.1"><link rel="stylesheet" type="text/css" href="/css/highlight.css?v=2.0.1"><link rel="Shortcut Icon" href="/favicon.ico"><link rel="bookmark" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">【译】Python dictionary implementation</h1><a id="logo" href="/.">JOHOO'S BLOG</a><p class="description"></p></div><div id="nav-menu"><a href="/." class="current"><i class="fa fa-home"> Home</i></a><a href="/archives/"><i class="fa fa-archive"> Archive</i></a><a href="/about/"><i class="fa fa-user"> About</i></a></div><div id="search-form"><div id="result-mask" class="hide"></div><label><input id="search-key" type="text" autocomplete="off" placeholder="Arama"></label><div id="result-wrap" class="hide"><div id="search-result"></div></div><div class="hide"><template id="search-tpl"><div class="item"><a href="/{path}" title="{title}"><div class="title">{title}</div><div class="time">{date}</div><div class="tags">{tags}</div></a></div></template></div></div></div><div id="layout" class="layout-g"><div class="layout-l"><div class="content_container"><div class="post"><h1 class="post-title">【译】Python dictionary implementation</h1><div class="post-meta"><a href="/2019/09/17/Python-dictionary-implementation/#comments" class="comment-count"><i data-disqus-identifier="2019/09/17/Python-dictionary-implementation/" class="disqus-comment-count"></i>Guestbook</a><p><span class="date">Sep 17, 2019</span><span><i id="busuanzi_container_page_pv"><i id="busuanzi_value_page_pv"></i><i>Hits</i></i></span></p></div><div class="post-content"><p>本文介绍Python中字典是如何实现的。<br>字典通过键来索引，看起来就像是有关联的数组一样。先添加3个键值对到一个字典：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">In [<span class="number">1</span>]: d = &#123;<span class="string">'a'</span>: <span class="number">1</span>, <span class="string">'b'</span>: <span class="number">2</span>&#125;</span><br><span class="line"></span><br><span class="line">In [<span class="number">2</span>]: d[<span class="string">'c'</span>] = <span class="number">3</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">3</span>]: d</span><br><span class="line">Out[<span class="number">3</span>]: &#123;<span class="string">'a'</span>: <span class="number">1</span>, <span class="string">'b'</span>: <span class="number">2</span>, <span class="string">'c'</span>: <span class="number">3</span>&#125;</span><br></pre></td></tr></table></figure></p>
+<p>字典的值通过以下方式来获取：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">In [<span class="number">4</span>]: d[<span class="string">'a'</span>]</span><br><span class="line">Out[<span class="number">4</span>]: <span class="number">1</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">5</span>]: d[<span class="string">'b'</span>]</span><br><span class="line">Out[<span class="number">5</span>]: <span class="number">2</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">6</span>]: d[<span class="string">'c'</span>]</span><br><span class="line">Out[<span class="number">6</span>]: <span class="number">3</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">7</span>]: d[<span class="string">'d'</span>]</span><br><span class="line">---------------------------------------------------------------------------</span><br><span class="line">KeyError                                  Traceback (most recent call last)</span><br><span class="line">&lt;ipython-input<span class="number">-7</span><span class="number">-0</span>d700facf69e&gt; <span class="keyword">in</span> &lt;module&gt;()</span><br><span class="line">----&gt; 1 d['d']</span><br><span class="line"></span><br><span class="line">KeyError: <span class="string">'d'</span></span><br></pre></td></tr></table></figure></p>
+<p>键<code>d</code>不存在，因此抛出<code>KeyError</code>.</p>
+<h3 id="哈希表"><a href="#哈希表" class="headerlink" title="哈希表"></a>哈希表</h3><p>Python字典是用哈希表来实现的。这是一个数组类结构，键通过哈希函数来得到索引值。哈希函数的目的是将这些键尽量平均的分散到这个数组中。一个良好的哈希函数意味着最少的碰撞（不同的键有同样的索引值）。Python并没有这种良好的哈希函数，其最重要的哈希函数（用于字符串和整形）在常规情形下表现非常普通。<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">In [<span class="number">10</span>]: map(hash, (<span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>))</span><br><span class="line">Out[<span class="number">10</span>]: [<span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]</span><br><span class="line"></span><br><span class="line">In [<span class="number">11</span>]: map(hash, (<span class="string">'namea'</span>, <span class="string">'nameb'</span>, <span class="string">'namec'</span>, <span class="string">'named'</span>))</span><br><span class="line">Out[<span class="number">11</span>]: </span><br><span class="line">[<span class="number">-6456208310023038713</span>,</span><br><span class="line"> <span class="number">-6456208310023038716</span>,</span><br><span class="line"> <span class="number">-6456208310023038715</span>,</span><br><span class="line"> <span class="number">-6456208310023038718</span>]</span><br></pre></td></tr></table></figure></p>
+<p>以下篇幅约定均以字符串作为键。Python中字符串的哈希函数定义是这样的：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">arguments: string object</span><br><span class="line">returns: hash</span><br><span class="line">function string_hash:</span><br><span class="line">    <span class="keyword">if</span> hash cached:</span><br><span class="line">        <span class="keyword">return</span> it</span><br><span class="line">    set len to string<span class="string">'s length</span></span><br><span class="line"><span class="string">    initialize var p pointing to 1st char of string object</span></span><br><span class="line"><span class="string">    set x to value pointed by p left shifted by 7 bits</span></span><br><span class="line"><span class="string">    while len &gt;= 0:</span></span><br><span class="line"><span class="string">        set var x to (1000003 * x) xor value pointed by p</span></span><br><span class="line"><span class="string">        increment pointer p</span></span><br><span class="line"><span class="string">    set x to x xor length of string object</span></span><br><span class="line"><span class="string">    cache x as the hash so we don'</span>t need to calculate it again</span><br><span class="line">    <span class="keyword">return</span> x <span class="keyword">as</span> the hash</span><br></pre></td></tr></table></figure></p>
+<p>如果你调用hash(‘a’), Python就会执行string_hash函数并返回12416037344. 假定我们的机器是64位的。<br>如果使用大小为x的数组来保存这些键值对，那么我们就使用大小为x-1的掩码来计算一组键值对在数组中的槽索引(slot index)。这使得槽索引的计算非常快。又因为后文将介绍的大小调整机制，找到一个空槽的概率是非常高的。这意味着一个简单的计算方法在多数情况下已经足够适用。如果数组大小是8，则a的索引是：hash(‘a’) &amp; 7 = 0. b的索引是3，c的索引是2，z的索引是3. b和z存在碰撞。<br><img src="https://i.loli.net/2019/09/17/3EbAcyoLGjxeSlV.png" alt="hash-collision.png"><br>我们看到，Python的hash函数处理连续的键时表现很好，这非常有用，因为连续的键是一种很普遍的情形。然而，一旦我们添加键z，则出现了碰撞，因为z的出现打破了这一连续性。<br>我们当然可以使用链表来保存具有相同哈希值的键，但这会增加查找的时间，不再是O(1)了。接下来会介绍Python的字典是如何处理这种碰撞的。</p>
+<h3 id="开放寻址"><a href="#开放寻址" class="headerlink" title="开放寻址"></a>开放寻址</h3><p>开放寻址是一种探查来解决碰撞的方法。对于上文的z，其槽索引3已经被占用，因此需要探查到一个没有被使用的索引。添加一个键值对平均的时间复杂度是O(1)，查找也是如此。<br>为了快速找到可用的槽索引，Python使用了二次方级的探查序列，代码如下：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">j = (<span class="number">5</span>*j) + <span class="number">1</span> + perturb;</span><br><span class="line">perturb &gt;&gt;= PERTURB_SHIFT;</span><br><span class="line">use j % <span class="number">2</span>**i <span class="keyword">as</span> the next table index;</span><br></pre></td></tr></table></figure></p>
+<p>举个栗子，看看表的大小为32且j=3时的探测序列：<br><figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">3 -&gt; 11 -&gt; 19 -&gt; 29 -&gt; 5 -&gt; 6 -&gt; 16 -&gt; 31 -&gt; 28 -&gt; 13 -&gt; 2…</span><br></pre></td></tr></table></figure></p>
+<p><img src="https://i.loli.net/2019/09/18/G9fdRhatIX1lH7o.png" alt="hash-collision2.png"></p>
+<p>现在是时候通过一个例子来看Python的内部实现代码了。</p>
+<h3 id="字典的C结构"><a href="#字典的C结构" class="headerlink" title="字典的C结构"></a>字典的C结构</h3><p>Python使用以下C程序来保存字典条目：hash, key, value. <code>PyObject</code>是Python中所有对象的基类。<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">	Py_ssize_t me_hash;</span><br><span class="line">	PyObject *me_key;</span><br><span class="line">	PyObject *me_value;</span><br><span class="line">&#125; PyDictEntry;</span><br></pre></td></tr></table></figure></p>
+<p>以下表示的就是字典的结构了。ma_fill是已使用槽+虚槽的总和。当一个键值对被移除，槽就被标记为虚槽。ma_used是已使用的槽数（active), ma_mask等于 数组的大小 - 1，被用来计算槽索引。ma_table是数组，ma_smalltable是初始数组（大小为8）。<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> _<span class="title">dictobject</span> <span class="title">PyDictObject</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> _<span class="title">dictobject</span> &#123;</span></span><br><span class="line"> 	PyObject_HEAD</span><br><span class="line">	Py_ssize_t ma_fill;</span><br><span class="line">	Py_ssize_t ma_used;</span><br><span class="line">	Py_ssize_t ma_mask;</span><br><span class="line">	PyDictEntry *ma_table;</span><br><span class="line">	PyDictEntry *(*ma_lookup)(PyDictObject *mp, PyObject *key, <span class="keyword">long</span> hash);</span><br><span class="line">	PyDictEntry ma_smalltable[PyDict_MINSIZE];</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure></p>
+<h3 id="字典初始化"><a href="#字典初始化" class="headerlink" title="字典初始化"></a>字典初始化</h3><p>当你新建一个字典的时候，函数<code>PyDict_New</code>被调用。我移除了一部分代码并把C替换为伪代码，从而把注意力放在关键之处。<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">returns <span class="keyword">new</span> dictionary object</span><br><span class="line">function PyDict_New:</span><br><span class="line">	allocate <span class="keyword">new</span> dictionary object</span><br><span class="line">	clear dictionary's table</span><br><span class="line">	<span class="built_in">set</span> dictionary's number of used slots + dummy slots (ma_fill) to <span class="number">0</span></span><br><span class="line">	<span class="built_in">set</span> dictionary's number of active slots (ma_used) to <span class="number">0</span></span><br><span class="line">	<span class="built_in">set</span> dictionary's mask (ma_value) to dictionary size - <span class="number">1</span> = <span class="number">7</span></span><br><span class="line">	<span class="built_in">set</span> dictionary's lookup function to lookdict_string</span><br><span class="line">	<span class="keyword">return</span> allocated dictionary object</span><br></pre></td></tr></table></figure></p>
+<h3 id="添加键值对"><a href="#添加键值对" class="headerlink" title="添加键值对"></a>添加键值对</h3><p>添加新的键值对时，函数<code>PyDict_SetItem</code>被调用。该函数接收字典对象的指针以及键值对。它检查键是否为字符串，并计算哈希值或复用缓存值。调用<code>insertdict</code>来添加新的键值对，如果已使用的槽数+虚槽数大于数组大小的2/3，则字典的大小需要还需进行调整(resize)。<br>为何2/3?这是为了保证探查序列能足够快速的定位到一个空槽。稍晚一点再看字典resize函数。<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">arguments: dictionary, key, value</span><br><span class="line">returns: <span class="number">0</span> <span class="keyword">if</span> OK <span class="keyword">or</span> <span class="number">-1</span></span><br><span class="line">function PyDict_SetItem:</span><br><span class="line">    <span class="keyword">if</span> key's hash cached:</span><br><span class="line">        use hash</span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        calculate hash</span><br><span class="line">    call insertdict with dictionary object, key, hash <span class="keyword">and</span> value</span><br><span class="line">    <span class="keyword">if</span> key/value pair added successfully <span class="keyword">and</span> capacity over <span class="number">2</span>/<span class="number">3</span>:</span><br><span class="line">        call dictresize to resize dictionary's table</span><br></pre></td></tr></table></figure></p>
+<p><code>insert_dict()</code>使用查找函数<code>lookdict_string</code>来定位一个空槽，查找key时也是用该函数。<code>lookdict_string</code>使用哈希值和mask值来计算槽索引。如果找不到槽索引 <code>index = hash &amp; mask</code>, 就启用上文的循环直到探查到一个空的槽。在第一次探查尝试的时候，如果key是null, 函数就返回第一次查找到的虚槽（如果有的话）。这是为了优先复用删除的槽。</p>
+<p>我们想添加键值对：<code>{‘a’: 1, ‘b’: 2′, ‘z’: 26, ‘y’: 25, ‘c’: 5, ‘x’: 24}</code>, 实际过程如下：</p>
+<p>首先分配一个初始大小为8的字典结构。</p>
+<ul>
+<li><p>PyDict_SetItem: key = ‘a’, value = 1</p>
+</li>
+<li><ul>
+<li><p>hash = hash(‘a’) = 12416037344</p>
+</li>
+<li><p>insertdict</p>
+</li>
+<li><ul>
+<li><p>lookdict_string</p>
+</li>
+<li><ul>
+<li>slot index = hash &amp; mask = 12416037344 &amp; 7 = 0</li>
+<li>slot 0 is not used so return it</li>
+</ul>
+</li>
+<li><p>init entry at index 0 with key, value and hash</p>
+</li>
+<li><p>ma_used = 1, ma_fill = 1</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>PyDict_SetItem: key = ‘b’, value = 2</p>
+</li>
+<li><ul>
+<li><p>hash = hash(‘b’) = 12544037731</p>
+</li>
+<li><p>insertdict</p>
+</li>
+<li><ul>
+<li><p>lookdict_string</p>
+</li>
+<li><ul>
+<li>slot index = hash &amp; mask = 12544037731 &amp; 7 = 3</li>
+<li>slot 3 is not used so return it</li>
+</ul>
+</li>
+<li><p>init entry at index 3 with key, value and hash</p>
+</li>
+<li><p>ma_used = 2, ma_fill = 2</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>PyDict_SetItem: key = ‘z’, value = 26</p>
+</li>
+<li><ul>
+<li><p>hash = hash(‘z’) = 15616046971</p>
+</li>
+<li><p>insertdict</p>
+</li>
+<li><ul>
+<li><p>lookdict_string</p>
+</li>
+<li><ul>
+<li>slot index = hash &amp; mask = 15616046971 &amp; 7 = 3</li>
+<li>slot 3 is used so probe for a different slot: 5 is free</li>
+</ul>
+</li>
+<li><p>init entry at index 5 with key, value and hash</p>
+</li>
+<li><p>ma_used = 3, ma_fill = 3</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>PyDict_SetItem: key = ‘y’, value = 25</p>
+</li>
+<li><ul>
+<li><p>hash = hash(‘y’) = 15488046584</p>
+</li>
+<li><p>insertdict</p>
+</li>
+<li><ul>
+<li><p>lookdict_string</p>
+</li>
+<li><ul>
+<li>slot index = hash &amp; mask = 15488046584 &amp; 7 = 0</li>
+<li>slot 0 is used so probe for a different slot: 1 is free</li>
+</ul>
+</li>
+<li><p>init entry at index 1 with key, value and hash</p>
+</li>
+<li><p>ma_used = 4, ma_fill = 4</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>PyDict_SetItem: key = ‘c’, value = 3</p>
+</li>
+<li><ul>
+<li><p>hash = hash(‘c’) = 12672038114</p>
+</li>
+<li><p>insertdict</p>
+</li>
+<li><ul>
+<li><p>lookdict_string</p>
+</li>
+<li><ul>
+<li>slot index = hash &amp; mask = 12672038114 &amp; 7 = 2</li>
+<li>slot 2 is free so return it</li>
+</ul>
+</li>
+<li><p>init entry at index 2 with key, value and hash</p>
+</li>
+<li><p>ma_used = 5, ma_fill = 5</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>PyDict_SetItem: key = ‘x’, value = 24</p>
+</li>
+<li><ul>
+<li><p>hash = hash(‘x’) = 15360046201</p>
+</li>
+<li><p>insertdict</p>
+</li>
+<li><ul>
+<li><p>lookdict_string</p>
+</li>
+<li><ul>
+<li>slot index = hash &amp; mask = 15360046201 &amp; 7 = 1</li>
+<li>slot 1 is used so probe for a different slot: 7 is free</li>
+</ul>
+</li>
+<li><p>init entry at index 7 with key, value and hash</p>
+</li>
+<li><p>ma_used = 6, ma_fill = 6</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>过程如下图：</p>
+<p><img src="https://i.loli.net/2019/09/20/YhaFr3z8XilWZR9.png" alt="insert.png"></p>
+<p>6个槽被使用，已经超过2/3，<code>dictresize</code>被调用来分配一个更大的数组空间。该函数同时会将旧表中的数据拷贝到新表中。</p>
+<p><code>dictresize</code>会把上述字典放大24，也就是4 <em> ma_used. 如果数组非常大（槽超过50000），则放大到2</em>ma_used. 为何是4倍？因为这减少了resize的次数并增大了空槽率。</p>
+<p>新的字典大小需要大于24，将原字典大小左一1比特直到其大小超过24为止，在我们的例子中就是：8-&gt;16-&gt;32.</p>
+<p>所以，上述resize的过程总结出来就是：一个大小为32的新字典被分配。旧字典中的数值通过新的mask(31)被插入到新字典中去。图示如下：</p>
+<p><img src="https://i.loli.net/2019/09/20/T1Luo9sd7VK6fp2.png" alt="resizing.png"></p>
+<h3 id="移除键值对"><a href="#移除键值对" class="headerlink" title="移除键值对"></a>移除键值对</h3><p>移除键值对是调用<code>PyDict_DelItem</code>. 计算移除键的哈希值并调用查找函数返回条目。该槽就转变为一个虚槽。</p>
+<p>我们要移除键c, 最终得到：</p>
+<p><img src="https://i.loli.net/2019/09/20/c7sqDN4diCEJ2vp.png" alt="delete222.png"></p>
+<p>注意移除操作并不会改变字典的大小，但是添加键值对时，resize的判断依据是已使用的槽+虚槽，所以某种程度上也会改变字典的大小吧。</p>
+</div><div class="tags"><a href="/tags/Python/">Python</a></div><div class="post-share"><div class="bdsharebuttonbox"><span style="float:left;line-height: 28px;height: 28px;font-size:16px;font-weight:blod">分享到：</span><a href="#" data-cmd="more" class="bds_more"></a><a href="#" data-cmd="mshare" title="分享到一键分享" class="bds_mshare"></a><a href="#" data-cmd="fbook" title="分享到Facebook" class="bds_fbook"></a><a href="#" data-cmd="twi" title="分享到Twitter" class="bds_twi"></a><a href="#" data-cmd="linkedin" title="分享到linkedin" class="bds_linkedin"></a><a href="#" data-cmd="youdao" title="分享到有道云笔记" class="bds_youdao"></a><a href="#" data-cmd="evernotecn" title="分享到印象笔记" class="bds_evernotecn"></a><a href="#" data-cmd="weixin" title="分享到微信" class="bds_weixin"></a><a href="#" data-cmd="qzone" title="分享到QQ空间" class="bds_qzone"></a><a href="#" data-cmd="tsina" title="分享到新浪微博" class="bds_tsina"></a></div></div><div class="post-nav"><a href="/2019/05/26/simple-analysis-of-eventlet/" class="next">simple analysis of eventlet</a></div><div id="comments"><div id="disqus_thread"></div></div></div></div></div><div class="layout-r"><div id="sidebar"><div class="search-pla"></div><div id="toc" class="widget"><div class="widget-title"><i class="fa fa-fei">Contents</i></div><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#哈希表"><span class="toc-text">哈希表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#开放寻址"><span class="toc-text">开放寻址</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#字典的C结构"><span class="toc-text">字典的C结构</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#字典初始化"><span class="toc-text">字典初始化</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#添加键值对"><span class="toc-text">添加键值对</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#移除键值对"><span class="toc-text">移除键值对</span></a></li></ol></div><div class="widget"><div class="widget-title"><i class="fa fa-xie"> Recent</i></div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2019/09/17/Python-dictionary-implementation/">【译】Python dictionary implementation</a></li><li class="post-list-item"><a class="post-list-link" href="/2019/05/26/simple-analysis-of-eventlet/">simple analysis of eventlet</a></li><li class="post-list-item"><a class="post-list-link" href="/2019/05/11/996-lay-off-middle-crisis/">996&lay off&middle crisis</a></li><li class="post-list-item"><a class="post-list-link" href="/2019/01/27/MongoDB-usage-of-common-apis/">MongoDB: usage of common apis</a></li><li class="post-list-item"><a class="post-list-link" href="/2019/01/21/Redis-usage-of-common-apis/">Redis: usage of common apis</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/12/25/Dive-into-Algorithm-quicksort/">Dive into Algorithm:quicksort</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/12/18/Dive-into-Python-singleton/">Dive into Python: singleton</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/12/05/Dive-into-flask-principle-of-Context/">Dive into flask: principle of Context</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/11/30/Dive-into-flask-the-journey-of-one-request/">Dive into flask: journey of one request</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/11/22/beginner-to-Django-6/">beginner to Django 6</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-gui"> Categories</i></div><ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/Life/">Life</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/编程/">编程</a><span class="category-list-count">3</span></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-biao"> Tags</i></div><div class="tagcloud"><a href="/tags/Django/" style="font-size: 15px;">Django</a> <a href="/tags/Algorithm/" style="font-size: 15px;">Algorithm</a> <a href="/tags/life/" style="font-size: 15px;">life</a> <a href="/tags/MongoDB/" style="font-size: 15px;">MongoDB</a> <a href="/tags/Redis/" style="font-size: 15px;">Redis</a> <a href="/tags/Python/" style="font-size: 15px;">Python</a> <a href="/tags/Flask/" style="font-size: 15px;">Flask</a> <a href="/tags/Openstack/" style="font-size: 15px;">Openstack</a> <a href="/tags/Eventlet/" style="font-size: 15px;">Eventlet</a> <a href="/tags/Linux/" style="font-size: 15px;">Linux</a> <a href="/tags/生活/" style="font-size: 15px;">生活</a></div></div><div class="widget"><div class="widget-title"><i class="fa fa-archive"> Archive</i></div><ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/09/">September 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/05/">May 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/01/">January 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/12/">December 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul></div></div></div></div><a id="totop" href="#top"></a><div id="footer"><div class="footer-info"><p><a href="/baidusitemap.xml">Baidu Site Haritası</a> |  <a href="/atom.xml">RSS</a> |  <a href="/about/">About</a></p><p>本站总访问量：<i id="busuanzi_container_site_pv"><i id="busuanzi_value_site_pv"></i></i>次</p><p><span> Copyright &copy;<a href="/." rel="nofollow">Johoo.</a></span><span> Theme by<a rel="nofollow" target="_blank" href="https://github.com/chaooo/hexo-theme-BlueLake"> BlueLake.</a></span><span> Count by<a href="http://busuanzi.ibruce.info/"> busuanzi.</a></span><span> Powered by<a rel="nofollow" target="_blank" href="https://hexo.io"> Hexo.</a></span></p></div></div></div><script src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js" async></script><script type="text/javascript" src="/js/search.json.js?v=2.0.1"></script><script type="text/javascript" src="/js/toctotop.js?v=2.0.1" async></script><script>window._bd_share_config={"common":{"bdSnsKey":{},"bdText":"","bdMini":"2","bdMiniList":["mshare","weixin","tsina","qzone","linkedin","fbook","twi","print","renren","sqq","evernotecn","bdysc","tqq","tqf","bdxc","kaixin001","tieba","douban","bdhome","thx","ibaidu","meilishuo","mogujie","diandian","huaban","duitang","hx","fx","youdao","sdo","qingbiji","people","xinhua","mail","isohu","yaolan","wealink","ty","iguba","h163","copy"],"bdPic":"","bdStyle":"1","bdSize":"16"},"share":{},"image":{"viewList":["tsina","qzone","weixin","fbook","twi","linkedin","youdao","evernotecn","mshare"],"viewText":"分享到：","viewSize":"16"},"selectShare":{"bdContainerClass":null,"bdSelectMiniList":["tsina","qzone","weixin","fbook","twi","linkedin","youdao","evernotecn","mshare"]}};with(document)0[(getElementsByTagName('head')[0]||head).appendChild(createElement('script')).src='http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion='+~(-new Date()/36e5)];
+</script><script>var disqus_shortname = 'johoo';
+var disqus_identifier = '2019/09/17/Python-dictionary-implementation/';
+var disqus_title = '【译】Python dictionary implementation';
+var disqus_url = 'https://johoo26.github.io/2019/09/17/Python-dictionary-implementation/';
+(function() {
+  var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+})();</script><script id="dsq-count-scr" src="//johoo.disqus.com/count.js" async></script><script type="text/javascript" src="//johoo.disqus.com/recent_comments_widget.js?num_items=5&amp;hide_avatars=1&amp;avatar_size=32&amp;excerpt_length=20&amp;hide_mods=1"></script></body></html>
